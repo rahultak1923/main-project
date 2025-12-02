@@ -1,7 +1,13 @@
 const { Router } = require("express");
-const User = require('../models/user')
+const User = require('../models/user');
+const bcrypt = require ("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { body, validationResult } = require("express-validator");
+
+
 
 const router = Router();
+const JWT_SECRET = 'rahulisagoodB$oy';
 
 router.get('/',async(req,res)=>{
     const user = await User.find({})
@@ -17,18 +23,51 @@ router.get('/:id',async(req,res)=>{
     return res.json({user})
 })
 
-router.post("/signin", async (req,res)=>{
-    const {fullname, email, password}= req.body;
-    console.log(req.body)
-   const newUser =  await User.create({
-        fullname,
-        email,
-        password,
-        createdBy: req.user_id,
-    });
-    return res.json({ user: newUser });
+router.post("/signup", async (req, res) => {
+  try {
+    const { fullname, email, password } = req.body;
 
-})
+    // Check missing fields
+    if (!fullname || !email || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Creating hashed password
+    const salt = await bcrypt.genSalt(10);
+    const secPass = await bcrypt.hash(password, salt);
+
+    // Create new user
+    const newUser = await User.create({
+      fullname,
+      email,
+      password: secPass,
+    });
+
+    // JWT Token
+    const data = {
+      user: { id: newUser._id },
+    };
+
+    const authToken = jwt.sign(data, JWT_SECRET);
+
+    return res.json({ authToken });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: "Failed to create user",
+      details: error.message,
+    });
+  }
+});
+
 
 router.delete("/delete/:id", async (req, res) => {
     try {
