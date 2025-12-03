@@ -68,6 +68,42 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+router.post("/login",[
+    body('password',"password cannot be blank").exists(),
+    body("email","enter a valid email").isEmail(),
+], async(req,res)=>{
+    try{
+        const error = validationResult(req);
+        if(!error.isEmpty()){
+            return res.status(400).json({error:error.array()})
+        }
+        const{email, password} = req.body;
+        try{
+            let user = await User.findOne({email});
+            if(!user){
+                return res.status(400).json({error:"please try to login with correct credentials"})
+            }
+            const passwordCompare = await bcrypt.compare(password, user.password);
+            if(!passwordCompare){
+                return res.status(400).json({error:"please try to login with correct credentials password is wrong"})
+            }
+            const data = {
+                user:{
+                    id: user.id
+                }
+            }
+            const authToken = jwt.sign(data, JWT_SECRET);
+            res.json({authToken})
+        }catch(error){
+            console.error("error creating user",error)
+            return res.status(500).json({error:"internal server error"})
+        }
+    }catch(error){
+            console.error("error creating user",error)
+            return res.status(500).json({error:"internal server error"})
+        }
+})
+
 
 router.delete("/delete/:id", async (req, res) => {
     try {
